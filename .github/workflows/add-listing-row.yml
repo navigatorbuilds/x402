@@ -1,0 +1,25 @@
+name: add-listing-row
+on: workflow_dispatch
+permissions:
+  contents: write
+jobs:
+  add-row:
+    runs-on: ubuntu-latest
+    steps:
+      - name: append the Elara row and commit through the API
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BR=docs/elara-listing
+          P=docs/dev-tools/third-party-extensions.md
+          gh api "repos/${GITHUB_REPOSITORY}/contents/${P}?ref=${BR}" --jq .content | base64 -d > f.md
+          OLD=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${P}?ref=${BR}" --jq .sha)
+          printf '%s\n' '| [Elara](https://navigatorbuilds.github.io/elara-mesh/) | Post-quantum (ML-DSA-65) record verification; attestation bound to the x402 payment id | Rust | [GitHub](https://github.com/navigatorbuilds/elara-mesh) · [crates.io](https://crates.io/crates/elara-verify) |' >> f.md
+          tail -3 f.md
+          NEW=$(base64 -w0 f.md)
+          SHA=$(gh api --method PUT "repos/${GITHUB_REPOSITORY}/contents/${P}" \
+            -f message="docs: add Elara to third-party extensions" \
+            -f content="$NEW" -f sha="$OLD" -f branch="$BR" --jq '.commit.sha')
+          echo "commit=$SHA"
+          gh api "repos/${GITHUB_REPOSITORY}/commits/$SHA" --jq '{verified: .commit.verification.verified, reason: .commit.verification.reason}'
