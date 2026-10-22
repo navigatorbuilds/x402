@@ -1,5 +1,11 @@
 name: add-listing-row
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: branch to append the Elara row on (a new branch at upstream main resolves a conflict)
+        default: docs/elara-listing
+        required: true
 permissions:
   contents: write
 jobs:
@@ -9,12 +15,13 @@ jobs:
       - name: append the Elara row and commit through the API
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BR: ${{ inputs.branch }}
         run: |
           set -euo pipefail
-          BR=docs/elara-listing
           P=docs/dev-tools/third-party-extensions.md
           gh api "repos/${GITHUB_REPOSITORY}/contents/${P}?ref=${BR}" --jq .content | base64 -d > f.md
           OLD=$(gh api "repos/${GITHUB_REPOSITORY}/contents/${P}?ref=${BR}" --jq .sha)
+          if grep -qF 'navigatorbuilds.github.io/elara-mesh' f.md; then echo "the Elara row is already on ${BR}"; exit 1; fi
           printf '%s\n' '| [Elara](https://navigatorbuilds.github.io/elara-mesh/) | Post-quantum (ML-DSA-65) record verification; attestation bound to the x402 payment id | Rust | [GitHub](https://github.com/navigatorbuilds/elara-mesh) · [crates.io](https://crates.io/crates/elara-verify) |' >> f.md
           tail -3 f.md
           NEW=$(base64 -w0 f.md)
